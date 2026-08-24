@@ -10,7 +10,7 @@
 #
 
 rp_module_id="lr-mupen64plus-rearmed"
-rp_module_desc="N64 emu - Mupen64Plus-ReARMed restoration core"
+rp_module_desc="N64 emu - Experimental Mupen64Plus-ReARMed restoration core with working frameskip for Glide64 and Rice"
 rp_module_help="ROM Extensions: .z64 .n64 .v64\n\nCopy your N64 roms to $romdir/n64"
 rp_module_licence="GPL2 https://raw.githubusercontent.com/Renetrox/Mupen64Plus-ReARMed/frameskip-modern/mupen64plus-core/LICENSES"
 rp_module_repo="git https://github.com/Renetrox/Mupen64Plus-ReARMed.git frameskip-modern"
