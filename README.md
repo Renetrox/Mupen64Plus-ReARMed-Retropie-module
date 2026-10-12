@@ -79,7 +79,7 @@ The installer accepts both binary names during the transition:
 - Current `frameskip-modern` branch: `parallel_n64_libretro.so`.
 - Proposed updated core in [Mupen64Plus-ReARMed PR #1](https://github.com/Renetrox/Mupen64Plus-ReARMed/pull/1): `mupen64plus_rearmed_libretro.so`.
 
-It installs **only the binary produced by the checked-out source**, never renames it over a stock ParaLLEl-N64 core. The existing `parallel-n64-*` RetroArch core-option keys remain unchanged for compatibility with saved settings. Do not rename the core-option keys just to match the binary filename.
+It installs **only the binary produced by the checked-out source**, never renames it over a stock ParaLLEl-N64 core. After a successful installation of the new `mupen64plus_rearmed_libretro.so`, the script automatically removes an existing `parallel_n64_libretro.so` **only inside this module's own install directory**. It leaves the old file alone when the new binary has not been installed, during removal, or under the separate official ParaLLEl-N64 module directory. The existing `parallel-n64-*` RetroArch core-option keys remain unchanged for compatibility with saved settings. Do not rename the core-option keys just to match the binary filename.
 
 The script preserves pre-existing `$biosdir/gles2n64rom.conf` content and only supplies its 28 ROM presets when the file does not exist. The gles2n64 frameskip default is **`0`** (disabled); `disabled` is not a valid value for that renderer's native frameskip.
 
