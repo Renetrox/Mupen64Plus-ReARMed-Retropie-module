@@ -39,6 +39,24 @@ function _binary_lr-mupen64plus-rearmed() {
     fi
 }
 
+# Only remove the legacy binary from this module's own installation
+# directory and only after the renamed core has been installed successfully.
+# RetroPie's stock lr-parallel-n64 lives in a different directory.
+function _cleanup_legacy_binary_lr-mupen64plus-rearmed() {
+    [[ "${md_mode:-}" == "install" ]] || return 0
+    [[ -n "${md_inst:-}" && -n "${md_id:-}" ]] || return 0
+    [[ "${md_inst%/}" == */"$md_id" ]] || return 0
+
+    local modern="$md_inst/mupen64plus_rearmed_libretro.so"
+    local legacy="$md_inst/parallel_n64_libretro.so"
+
+    # Do nothing while the active source still builds the old filename.
+    # The new core must exist and contain data before the old one is removed.
+    [[ -s "$modern" && -f "$legacy" ]] || return 0
+
+    rm -f -- "$legacy"
+}
+
 function sources_lr-mupen64plus-rearmed() {
     gitPullOrClone
 }
@@ -106,6 +124,10 @@ function configure_lr-mupen64plus-rearmed() {
     binary="$(_binary_lr-mupen64plus-rearmed "$md_inst")" || binary="mupen64plus_rearmed_libretro.so"
     addEmulator 0 "$md_id" "n64" "$md_inst/$binary"
     addSystem "n64"
+
+    # Complete a successful upgrade without leaving the old .so alongside
+    # the new one. Never touch lr-parallel-n64 or unrelated core directories.
+    _cleanup_legacy_binary_lr-mupen64plus-rearmed
 
     # Uninstall must not rewrite global RetroArch options or shared BIOS files.
     [[ "$md_mode" == "remove" ]] && return
