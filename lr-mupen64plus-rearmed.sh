@@ -17,11 +17,26 @@ rp_module_repo="git https://github.com/Renetrox/Mupen64Plus-ReARMed.git frameski
 rp_module_section="exp x86=main"
 
 function depends_lr-mupen64plus-rearmed() {
-    local depends=()
+    local depends=(build-essential pkg-config zlib1g-dev)
     isPlatform "x11" && depends+=(libgl1-mesa-dev)
     isPlatform "videocore" && depends+=(libraspberrypi-dev)
-    isPlatform "kms" && isPlatform "gles" && depends+=(libgles2-mesa-dev)
+    # EGL/GLES headers are required by the legacy Glide64, Rice and glN64 paths.
+    isPlatform "gles" && depends+=(libegl1-mesa-dev libgles2-mesa-dev)
     getDepends "${depends[@]}"
+}
+
+# The core originally shipped as parallel_n64_libretro.so. A separate
+# Mupen64Plus-ReARMed binary name is introduced by the renderer-fix branch.
+# Support both during migration, without moving/overwriting ParaLLEl-N64.
+function _binary_lr-mupen64plus-rearmed() {
+    local dir="$1"
+    if [[ -f "$dir/mupen64plus_rearmed_libretro.so" ]]; then
+        echo "mupen64plus_rearmed_libretro.so"
+    elif [[ -f "$dir/parallel_n64_libretro.so" ]]; then
+        echo "parallel_n64_libretro.so"
+    else
+        return 1
+    fi
 }
 
 function sources_lr-mupen64plus-rearmed() {
@@ -34,7 +49,9 @@ function build_lr-mupen64plus-rearmed() {
     if isPlatform "videocore" || isPlatform "odroid-c1"; then
         params+=(platform="$__platform")
     else
-        isPlatform "gles" && params+=(GLES=1 GL_LIB:=-lGLESv2)
+        # FORCE_GLES enables GLES on generic Debian/Armbian while letting
+        # the core Makefile select the correct linker flags.
+        isPlatform "gles" && params+=(FORCE_GLES=1)
         if isPlatform "arm"; then
             params+=(CPUFLAGS="-DNO_ASM -DARM -D__arm__ -DARM_ASM -D__NEON_OPT -DNOSSE -DARM_FIX")
             params+=(WITH_DYNAREC=arm)
@@ -44,15 +61,31 @@ function build_lr-mupen64plus-rearmed() {
             params+=(WITH_DYNAREC=aarch64)
         fi
     fi
-    make clean
-    make "${params[@]}"
+    # Always disable temporary swap, even when the compiler fails.
+    local build_status=0
+    make "${params[@]}" clean || build_status=$?
+    if (( build_status == 0 )); then
+        make "${params[@]}" || build_status=$?
+    fi
     rpSwap off
-    md_ret_require="$md_build/parallel_n64_libretro.so"
+    (( build_status == 0 )) || return "$build_status"
+
+    local binary
+    if ! binary="$(_binary_lr-mupen64plus-rearmed "$md_build")"; then
+        md_ret_errors+=("Neither the ReARMed nor the legacy ParaLLEl-named binary was built")
+        return 1
+    fi
+    md_ret_require="$md_build/$binary"
 }
 
 function install_lr-mupen64plus-rearmed() {
+    local binary
+    if ! binary="$(_binary_lr-mupen64plus-rearmed "$md_build")"; then
+        md_ret_errors+=("Mupen64Plus-ReARMed binary missing: run Build first")
+        return 1
+    fi
     md_ret_files=(
-        'parallel_n64_libretro.so'
+        "$binary"
         'README.md'
         'mupen64plus-core/LICENSES'
     )
@@ -62,15 +95,30 @@ function configure_lr-mupen64plus-rearmed() {
     mkRomDir "n64"
     defaultRAConfig "n64"
 
+    # Register our own libretro core, never replace the stock ParaLLEl core.
+    # On removal the binary may already be gone; addEmulator uses the module
+    # ID to remove the entry, so its path is harmless in that case.
+    local binary
+    binary="$(_binary_lr-mupen64plus-rearmed "$md_inst")" || binary="mupen64plus_rearmed_libretro.so"
+    addEmulator 0 "$md_id" "n64" "$md_inst/$binary"
+    addSystem "n64"
+
+    # Uninstall must not rewrite global RetroArch options or shared BIOS files.
+    [[ "$md_mode" == "remove" ]] && return
+
+    # Preserve the established light-renderer defaults (old option key names
+    # are intentional; changing them would discard existing RetroArch setups).
     # Set core options
     setRetroArchCoreOption "parallel-n64-gfxplugin" "glide64"
     setRetroArchCoreOption "parallel-n64-gfxplugin-accuracy" "low"
     setRetroArchCoreOption "parallel-n64-screensize" "640x480"
     setRetroArchCoreOption "parallel-n64-frameskip" "disabled"
-    setRetroArchCoreOption "parallel-n64-gles2n64-frameskip" "disabled"
+    setRetroArchCoreOption "parallel-n64-gles2n64-frameskip" "0"
 
-    # Copy config files
-    cat > "$biosdir/gles2n64rom.conf" << _EOF_
+    # Install the built-in ROM tuning table only on first setup. This is
+    # a shared BIOS file and could contain valuable user edits.
+    if [[ ! -e "$biosdir/gles2n64rom.conf" ]]; then
+        cat > "$biosdir/gles2n64rom.conf" << '_EOF_'
 #rom specific settings
 
 rom name=SUPER MARIO 64
@@ -172,8 +220,6 @@ rom name=Mega Man 64
 framebuffer enable=1
 target FPS=25
 _EOF_
-    chown "$__user":"$__group" "$biosdir/gles2n64rom.conf"
-
-    addEmulator 0 "$md_id" "n64" "$md_inst/parallel_n64_libretro.so"
-    addSystem "n64"
+        chown "$__user":"$__group" "$biosdir/gles2n64rom.conf"
+    fi
 }
