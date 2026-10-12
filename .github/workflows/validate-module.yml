@@ -37,3 +37,32 @@ jobs:
           touch "$dir/mupen64plus_rearmed_libretro.so"
           test "$(_binary_lr-mupen64plus-rearmed "$dir")" = "mupen64plus_rearmed_libretro.so"
           grep -Fq 'setRetroArchCoreOption "parallel-n64-gles2n64-frameskip" "0"' lr-mupen64plus-rearmed.sh
+      - name: Test guarded binary migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          source ./lr-mupen64plus-rearmed.sh
+          dir="$(mktemp -d)"
+          trap 'rm -rf "$dir"' EXIT
+          md_id="lr-mupen64plus-rearmed"
+          md_inst="$dir/libretrocores/$md_id"
+          md_mode="install"
+          mkdir -p "$md_inst"
+          printf 'legacy' > "$md_inst/parallel_n64_libretro.so"
+          _cleanup_legacy_binary_lr-mupen64plus-rearmed
+          test -f "$md_inst/parallel_n64_libretro.so"
+          printf 'modern' > "$md_inst/mupen64plus_rearmed_libretro.so"
+          md_mode="remove"
+          _cleanup_legacy_binary_lr-mupen64plus-rearmed
+          test -f "$md_inst/parallel_n64_libretro.so"
+          md_mode="install"
+          _cleanup_legacy_binary_lr-mupen64plus-rearmed
+          test ! -e "$md_inst/parallel_n64_libretro.so"
+          test -s "$md_inst/mupen64plus_rearmed_libretro.so"
+          # Never remove a core outside this module's own directory.
+          mkdir -p "$dir/libretrocores/lr-parallel-n64"
+          md_inst="$dir/libretrocores/lr-parallel-n64"
+          printf 'legacy' > "$md_inst/parallel_n64_libretro.so"
+          printf 'modern' > "$md_inst/mupen64plus_rearmed_libretro.so"
+          _cleanup_legacy_binary_lr-mupen64plus-rearmed
+          test -f "$md_inst/parallel_n64_libretro.so"
