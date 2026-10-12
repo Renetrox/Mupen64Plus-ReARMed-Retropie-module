@@ -61,6 +61,10 @@ function build_lr-mupen64plus-rearmed() {
             params+=(WITH_DYNAREC=aarch64)
         fi
     fi
+    # The upstream branch can change output names between builds. Remove
+    # both old artifacts so the installer never picks up a stale .so file.
+    rm -f "$md_build/parallel_n64_libretro.so" "$md_build/mupen64plus_rearmed_libretro.so"
+
     # Always disable temporary swap, even when the compiler fails.
     local build_status=0
     make "${params[@]}" clean || build_status=$?
