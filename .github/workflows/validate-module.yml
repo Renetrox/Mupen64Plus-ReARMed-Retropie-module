@@ -1,0 +1,39 @@
+name: Validate RetroPie installer
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lr-mupen64plus-rearmed.sh'
+      - '.github/workflows/validate-module.yml'
+  pull_request:
+    paths:
+      - 'lr-mupen64plus-rearmed.sh'
+      - '.github/workflows/validate-module.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  script:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Bash syntax
+        run: bash -n lr-mupen64plus-rearmed.sh
+      - name: Test the old/new binary selection
+        shell: bash
+        run: |
+          set -e
+          source ./lr-mupen64plus-rearmed.sh
+          dir="$(mktemp -d)"
+          trap 'rm -rf "$dir"' EXIT
+          if _binary_lr-mupen64plus-rearmed "$dir"; then
+            echo "Empty directory unexpectedly accepted" >&2
+            exit 1
+          fi
+          touch "$dir/parallel_n64_libretro.so"
+          test "$(_binary_lr-mupen64plus-rearmed "$dir")" = "parallel_n64_libretro.so"
+          touch "$dir/mupen64plus_rearmed_libretro.so"
+          test "$(_binary_lr-mupen64plus-rearmed "$dir")" = "mupen64plus_rearmed_libretro.so"
+          grep -Fq 'setRetroArchCoreOption "parallel-n64-gles2n64-frameskip" "0"' lr-mupen64plus-rearmed.sh
