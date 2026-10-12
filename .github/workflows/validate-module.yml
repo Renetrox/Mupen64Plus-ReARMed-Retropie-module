@@ -41,6 +41,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # RetroPie defines romdir before sourcing scriptmodules.
+          romdir="$PWD"
           source ./lr-mupen64plus-rearmed.sh
           dir="$(mktemp -d)"
           trap 'rm -rf "$dir"' EXIT
