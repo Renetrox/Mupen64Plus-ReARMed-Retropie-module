@@ -88,3 +88,38 @@ This repository is the **canonical RetroPie installer** for ReARMed. The standal
 ## Experimental warning
 
 This module tracks active development. Some games or renderers may still show regressions, visual issues or compatibility problems. It is intended for testing and restoration work, not yet as a drop-in replacement for every N64 setup.
+
+## Save states
+
+The core implements manual save/load states. Configure installs metadata for
+`mupen64plus_rearmed_libretro.so` into RetroPie's standard core-info directory,
+`/opt/retropie/configs/all/retroarch/cores`, and requests an info-cache refresh.
+It declares only `basic` support; rewind, run-ahead and deterministic netplay
+are not promised. The stock `parallel_n64_libretro.info` is left untouched.
+Run the module's **Configuration / options** step after updating this script;
+recompiling the core is unnecessary for this metadata change.
+
+If RetroArch uses a custom **Settings > Directory > Core Info** location, copy
+`mupen64plus_rearmed_libretro.info` from the module installation directory into
+that location and restart RetroArch. An update of RetroArch's core-info checkout
+can remove locally added info files; rerun this module's configuration afterwards.
+
+If the menu is still missing, test with a game running:
+
+1. Under Settings > Core, temporarily enable **Bypass Core Info Save States
+   Features** (`core_info_savestate_bypass`). Advanced settings may need enabling.
+   Reopen the Quick Menu. If Save State appears, metadata/cache detection is the
+   blocker. Turn the bypass off after this test; do not save it globally.
+2. If it remains hidden, check Quick Menu visibility, core/game overrides and
+   achievement restrictions. These are separate from core serialization.
+3. With a keyboard, try F2 (save) and F4 (load), subject to your configured
+   hotkey-enable requirement. Test on a spare state slot. Record the notification
+   or verbose RetroArch log if it fails.
+
+The metadata correction has not been validated by saving/loading a game on the
+target Orange Pi. It does not establish the cause of every missing-menu report.
+
+FreeJ2ME-Plus is different: its libretro serialization size is zero and both
+serialization functions return false. Do not apply a `savestate = "true"`
+metadata workaround to it. Its normal in-game RMS saves remain available;
+adding arbitrary-point states requires a Java runtime snapshot implementation.
