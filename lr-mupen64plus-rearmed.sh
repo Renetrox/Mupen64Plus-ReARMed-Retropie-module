@@ -113,6 +113,40 @@ function install_lr-mupen64plus-rearmed() {
     )
 }
 
+# Keep the renamed core's metadata in RetroPie's actual info directory.
+# A sidecar beside the .so alone is not sufficient when libretro_info_path
+# points at configs/all/retroarch/cores. Never replace ParaLLEl's metadata.
+function _core_info_lr-mupen64plus-rearmed() {
+    [[ "$md_mode" == "remove" ]] && return 0
+    local name="mupen64plus_rearmed_libretro.info"
+    local dir="$configdir/all/retroarch/cores"
+    mkdir -p "$dir" || return 1
+    cat > "$md_inst/$name" << '_INFO_'
+display_name = "Nintendo - Nintendo 64 (Mupen64Plus-ReARMed)"
+corename = "Mupen64Plus-ReARMed"
+authors = "Mupen64Plus Team|Libretro|Renetrox"
+supported_extensions = "n64|v64|z64|bin|u1|ndd|zip"
+categories = "Emulator"
+license = "GPLv2"
+permissions = "dynarec_optional"
+manufacturer = "Nintendo"
+systemname = "Nintendo 64"
+systemid = "nintendo_64"
+database = "Nintendo - Nintendo 64|Nintendo - Nintendo 64DD"
+supports_no_game = "false"
+is_experimental = "true"
+savestate = "true"
+savestate_features = "basic"
+core_options = "true"
+_INFO_
+    [[ $? -eq 0 ]] || return 1
+    cp "$md_inst/$name" "$dir/$name" || return 1
+    chown "$__user:$__group" "$dir/$name"
+    # RetroArch watches this marker to rebuild an enabled core-info cache.
+    touch "$dir/core_info.refresh"
+    chown "$__user:$__group" "$dir/core_info.refresh"
+}
+
 function configure_lr-mupen64plus-rearmed() {
     mkRomDir "n64"
     defaultRAConfig "n64"
@@ -131,6 +165,8 @@ function configure_lr-mupen64plus-rearmed() {
 
     # Uninstall must not rewrite global RetroArch options or shared BIOS files.
     [[ "$md_mode" == "remove" ]] && return
+
+    _core_info_lr-mupen64plus-rearmed || return 1
 
     # Preserve the established light-renderer defaults (old option key names
     # are intentional; changing them would discard existing RetroArch setups).
